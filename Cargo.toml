@@ -1,0 +1,23 @@
+[package]
+name = "scoundrel"
+version = "0.1.0"
+edition = "2024"
+authors = ["Adrian Schneider <adrian.schneider11@icloud.com>"]
+description = "A terminal-based implementation of the solo card game Scoundrel"
+repository = "https://github.com/adrior11/scoundrel-tui"
+keywords = ["tui", "game", "roguelike", "cards"]
+categories = ["command-line-utilities", "games"]
+readme = "README.md"
+license = "MIT"
+default-run = "scoundrel"
+
+[dependencies]
+anyhow = "1.0.100"
+arboard = "3.6.1"
+chrono = "0.4.42"
+directories = "6.0.0"
+rand = "0.9.2"
+ratatui = "0.29.0"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+tui-textarea = "0.7.0"
