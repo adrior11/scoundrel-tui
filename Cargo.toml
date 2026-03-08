@@ -1,5 +1,5 @@
 [package]
-name = "scoundrel"
+name = "scoundrel-tui"
 version = "0.1.0"
 edition = "2024"
 authors = ["Adrian Schneider <adrian.schneider11@icloud.com>"]
@@ -10,6 +10,10 @@ categories = ["command-line-utilities", "games"]
 readme = "README.md"
 license = "MIT"
 default-run = "scoundrel"
+
+[[bin]]
+name = "scoundrel"
+path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0.100"
