@@ -1141,13 +1141,20 @@ impl SeedTextarea {
 
 impl Widget for &SeedTextarea {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let [ta_area, _] = Layout::default()
+        let [ta_area, error_area] = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Length(MENU_SEED_HEIGHT), Constraint::Fill(1)])
+            .constraints([Constraint::Length(MENU_SEED_HEIGHT), Constraint::Length(1)])
             .margin(1)
             .areas(centered_width(area, MENU_SEED_WIDTH));
 
         self.textarea.clone().render(ta_area, buf);
+
+        if let Some(error) = &self.error {
+            Paragraph::new(error.as_str())
+                .style(Styling::Bold)
+                .alignment(HorizontalAlignment::Center)
+                .render(error_area, buf);
+        }
     }
 }
 
