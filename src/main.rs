@@ -2,7 +2,6 @@ use std::{
     collections::VecDeque,
     fmt::{Display, Formatter},
     fs,
-    io::Stdout,
     path::PathBuf,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -12,11 +11,11 @@ use chrono::{Local, TimeZone};
 use directories::ProjectDirs;
 use rand::{Rng, SeedableRng, rngs::StdRng, seq::SliceRandom};
 use ratatui::{
-    Terminal,
+    DefaultTerminal,
     buffer::Buffer,
     crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     layout::{Constraint, Direction, Flex, HorizontalAlignment, Layout, Rect},
-    prelude::{CrosstermBackend, Widget},
+    prelude::Widget,
     style::Style,
     text::{Line, Span, Text},
     widgets::{
@@ -1320,7 +1319,7 @@ impl Default for App {
 }
 
 impl App {
-    fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> anyhow::Result<()> {
+    fn run(&mut self, terminal: &mut DefaultTerminal) -> anyhow::Result<()> {
         while self.running {
             terminal.draw(|frame| {
                 let area = frame.area();
@@ -1887,8 +1886,6 @@ fn format_duration(d: Duration) -> String {
 
 fn main() -> anyhow::Result<()> {
     let mut app = App::default();
-    let mut terminal = ratatui::init();
-    app.run(&mut terminal)?;
-    ratatui::restore();
+    ratatui::run(|terminal| app.run(terminal))?;
     Ok(())
 }
