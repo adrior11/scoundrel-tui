@@ -1,7 +1,6 @@
 use std::{
     collections::VecDeque,
     fmt::{Display, Formatter},
-    fs,
     path::PathBuf,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -308,7 +307,7 @@ impl Player {
     }
 
     fn clear_slain_cards(&mut self) -> Vec<Card> {
-        self.slain_cards.drain(..).collect()
+        std::mem::take(&mut self.slain_cards)
     }
 
     fn toggle_weapon_usage(&mut self) {
@@ -940,11 +939,11 @@ impl ScoreStore {
             .ok_or_else(|| anyhow::anyhow!("Could not resolve data dir"))?;
 
         let dir = proj.data_local_dir().to_path_buf();
-        fs::create_dir_all(&dir)?;
+        std::fs::create_dir_all(&dir)?;
 
         let path = dir.join("scores.json");
         let file = if path.exists() {
-            let bytes = fs::read(&path)?;
+            let bytes = std::fs::read(&path)?;
             serde_json::from_slice::<ScoreFile>(&bytes).unwrap_or_default()
         } else {
             ScoreFile::default()
@@ -981,8 +980,8 @@ impl ScoreStore {
     fn save(&self) -> anyhow::Result<()> {
         let tmp = self.path.with_extension("json.tmp");
         let bytes = serde_json::to_vec_pretty(&self.file)?;
-        fs::write(&tmp, bytes)?;
-        fs::rename(tmp, &self.path)?;
+        std::fs::write(&tmp, bytes)?;
+        std::fs::rename(tmp, &self.path)?;
         Ok(())
     }
 }
