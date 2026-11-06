@@ -15,8 +15,8 @@ use ratatui::{
     Terminal,
     buffer::Buffer,
     crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
-    layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
-    prelude::{CrosstermBackend, Stylize, Widget},
+    layout::{Constraint, Direction, Flex, HorizontalAlignment, Layout, Rect},
+    prelude::{CrosstermBackend, Widget},
     style::Style,
     text::{Line, Span, Text},
     widgets::{
@@ -1050,7 +1050,7 @@ impl Widget for &ScoreStore {
                 .areas(inner);
 
             Paragraph::new(" No scores yet. ")
-                .alignment(Alignment::Center)
+                .alignment(HorizontalAlignment::Center)
                 .render(center, buf);
 
             return;
@@ -1213,12 +1213,12 @@ impl Widget for &MenuHeader {
             .areas(header_area_clamped);
 
         Paragraph::new(self.logo.clone())
-            .alignment(Alignment::Center)
+            .alignment(HorizontalAlignment::Center)
             .style(Styling::Bold)
             .render(logo_area, buf);
 
         Paragraph::new(self.version_line.clone())
-            .alignment(Alignment::Right)
+            .alignment(HorizontalAlignment::Right)
             .render(version_area, buf);
     }
 }
@@ -1613,7 +1613,7 @@ impl App {
             .areas(inner);
 
         Paragraph::new("This action cannot be undone.")
-            .alignment(Alignment::Center)
+            .alignment(HorizontalAlignment::Center)
             .render(message_area, buf);
 
         Paragraph::new(Line::from(vec![
@@ -1621,7 +1621,7 @@ impl App {
             Span::raw("   "),
             Span::styled(" No ", Styling::confirm_label(!confirmed)),
         ]))
-        .alignment(Alignment::Center)
+        .alignment(HorizontalAlignment::Center)
         .render(choice_area, buf);
     }
 
@@ -1771,7 +1771,7 @@ impl App {
         ];
 
         Paragraph::new(msg)
-            .alignment(Alignment::Center)
+            .alignment(HorizontalAlignment::Center)
             .style(Styling::Bold)
             .render(area, buf);
     }
