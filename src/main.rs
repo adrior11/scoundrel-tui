@@ -684,31 +684,36 @@ impl Game {
 
     /// Calculate the final score based on whether the player won or lost.
     ///
-    /// If the player won, the score is the sum of the player's remaining health and the
-    /// values of all Heart cards (`Potions`) in the room if the player's health is full.
-    /// Otherwise, if the player lost, the score is the negative sum of the values
-    /// of all Spade and Club cards (`Monsters`) remaining in the deck.
+    /// If the player won, the score is their remaining health, plus the value
+    /// of the final card if it is a Heart (_Potion_) and their health is full.
+    /// Otherwise, the score is the negative sum of the values of all remaining
+    /// Spade and Club cards (_Monsters_) in the dungeon (deck + room).
     fn get_score(&self, won: bool) -> isize {
-        let mut score: isize = 0;
-
         if won {
-            score += self.player.health as isize;
-            if self.player.health == MAX_HEALTH {
-                for c in self.room.cards.iter().flatten() {
-                    if matches!(c.suit, Suit::Hearts) {
-                        score += c.rank as isize;
-                    }
-                }
-            }
-        } else {
-            for c in &self.deck.cards {
-                if matches!(c.suit, Suit::Spades | Suit::Clubs) {
-                    score -= c.rank as isize;
-                }
-            }
-        }
+            let health = self.player.health as isize;
 
-        score
+            let bonus = if self.player.health == MAX_HEALTH {
+                self.room
+                    .cards
+                    .iter()
+                    .flatten()
+                    .find(|c| matches!(c.suit, Suit::Hearts))
+                    .map_or(0, |c| c.rank as isize)
+            } else {
+                0
+            };
+
+            health + bonus
+        } else {
+            -self
+                .deck
+                .cards
+                .iter()
+                .chain(self.room.cards.iter().flatten())
+                .filter(|c| matches!(c.suit, Suit::Spades | Suit::Clubs))
+                .map(|c| c.rank as isize)
+                .sum::<isize>()
+        }
     }
 
     fn elapsed(&self) -> Duration {
