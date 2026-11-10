@@ -8,6 +8,8 @@ use std::{
 use arboard::Clipboard;
 use chrono::{Local, TimeZone};
 use directories::ProjectDirs;
+use itertools::Itertools;
+use num_enum::TryFromPrimitive;
 use rand::{Rng, SeedableRng, rngs::StdRng, seq::SliceRandom};
 use ratatui::{
     DefaultTerminal,
@@ -23,6 +25,7 @@ use ratatui::{
     },
 };
 use serde::{Deserialize, Serialize};
+use strum::{EnumIter, IntoEnumIterator};
 use tui_textarea::{Input, TextArea};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -63,16 +66,12 @@ X: `*88888%`     ! 9888       888R I888>   8888  888R     8888  888R   888E  888
      ^"****""`        "P'                                                 ""                      "YP'       "%    
 "#;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, EnumIter)]
 enum Suit {
     Hearts,
     Diamonds,
     Clubs,
     Spades,
-}
-
-impl Suit {
-    const ALL: [Self; 4] = [Self::Hearts, Self::Diamonds, Self::Clubs, Self::Spades];
 }
 
 impl Display for Suit {
@@ -87,9 +86,10 @@ impl Display for Suit {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, TryFromPrimitive, EnumIter)]
+#[repr(u8)]
 enum Rank {
-    Two,
+    Two = 2,
     Three,
     Four,
     Five,
@@ -104,59 +104,29 @@ enum Rank {
     Ace,
 }
 
-impl Rank {
-    fn short(self) -> &'static str {
-        match self {
-            Self::Two => "2",
-            Self::Three => "3",
-            Self::Four => "4",
-            Self::Five => "5",
-            Self::Six => "6",
-            Self::Seven => "7",
-            Self::Eight => "8",
-            Self::Nine => "9",
-            Self::Ten => "10",
-            Self::Jack => "J",
-            Self::Queen => "Q",
-            Self::King => "K",
-            Self::Ace => "A",
-        }
+impl Display for Rank {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let rank_str: &str = (*self).into();
+        write!(f, "{}", rank_str)
     }
+}
 
-    fn value(self) -> u8 {
-        match self {
-            Self::Two => 2,
-            Self::Three => 3,
-            Self::Four => 4,
-            Self::Five => 5,
-            Self::Six => 6,
-            Self::Seven => 7,
-            Self::Eight => 8,
-            Self::Nine => 9,
-            Self::Ten => 10,
-            Self::Jack => 11,
-            Self::Queen => 12,
-            Self::King => 13,
-            Self::Ace => 14,
-        }
-    }
-
-    fn from_value(value: u8) -> Option<Self> {
-        match value {
-            2 => Some(Self::Two),
-            3 => Some(Self::Three),
-            4 => Some(Self::Four),
-            5 => Some(Self::Five),
-            6 => Some(Self::Six),
-            7 => Some(Self::Seven),
-            8 => Some(Self::Eight),
-            9 => Some(Self::Nine),
-            10 => Some(Self::Ten),
-            11 => Some(Self::Jack),
-            12 => Some(Self::Queen),
-            13 => Some(Self::King),
-            14 => Some(Self::Ace),
-            _ => None,
+impl From<Rank> for &str {
+    fn from(rank: Rank) -> Self {
+        match rank {
+            Rank::Two => "2",
+            Rank::Three => "3",
+            Rank::Four => "4",
+            Rank::Five => "5",
+            Rank::Six => "6",
+            Rank::Seven => "7",
+            Rank::Eight => "8",
+            Rank::Nine => "9",
+            Rank::Ten => "10",
+            Rank::Jack => "J",
+            Rank::Queen => "Q",
+            Rank::King => "K",
+            Rank::Ace => "A",
         }
     }
 }
@@ -199,7 +169,7 @@ impl Card {
 impl Widget for Card {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let top = Line::from(format!("{}{}", self.suit, " ".repeat(4)));
-        let mid = Line::from(centered_str(self.rank.short(), 5));
+        let mid = Line::from(centered_str(self.rank.into(), 5));
         let bot = Line::from(format!("{}{}", " ".repeat(4), self.suit));
 
         Paragraph::new(vec![top, mid, bot])
@@ -226,26 +196,15 @@ struct Deck {
 
 impl Deck {
     fn new() -> Self {
-        let mut cards: Vec<Card> = Vec::with_capacity(DECK_SIZE);
+        let cards: VecDeque<Card> = Suit::iter()
+            .cartesian_product(Rank::iter())
+            .filter(|(suit, rank)| {
+                !matches!(suit, Suit::Hearts | Suit::Diamonds) || *rank < Rank::Jack
+            })
+            .map(|(suit, rank)| Card::new(suit, rank))
+            .collect();
 
-        for suit in Suit::ALL {
-            let upper_bound = match suit {
-                Suit::Hearts | Suit::Diamonds => 10,
-                Suit::Clubs | Suit::Spades => 14,
-            };
-
-            for value in 2..=upper_bound {
-                if let Some(rank) = Rank::from_value(value) {
-                    cards.push(Card::new(suit, rank));
-                } else {
-                    panic!("Invalid rank value: {}", value);
-                }
-            }
-        }
-
-        Self {
-            cards: cards.into(),
-        }
+        Self { cards }
     }
 
     fn draw(&mut self) -> Card {
@@ -303,7 +262,7 @@ impl Player {
     }
 
     fn get_smallest_slain_card(&self) -> Option<&Card> {
-        self.slain_cards.iter().min_by_key(|c| c.rank.value())
+        self.slain_cards.iter().min_by_key(|c| c.rank)
     }
 
     fn clear_slain_cards(&mut self) -> Vec<Card> {
@@ -539,13 +498,13 @@ impl Game {
 
                     if matches!(card.suit, Suit::Spades | Suit::Clubs)
                         && let Some(last_slain) = self.player.get_smallest_slain_card()
-                        && card.rank.value() >= last_slain.rank.value()
+                        && card.rank >= last_slain.rank
                     {
                         events.push(GameEvent::warn(format!(
                             "Your blade refuses the challenge: must slay weaker than {}{} (selected {}{}). Switch stance (Space) to fight bare-handed.",
-                            last_slain.rank.short(),
+                            last_slain.rank,
                             last_slain.suit,
-                            card.rank.short(),
+                            card.rank,
                             card.suit,
                         )));
                         return events;
@@ -575,51 +534,42 @@ impl Game {
 
                     if let Some(last_slain) = self.player.get_smallest_slain_card() {
                         debug_assert!(
-                            card.rank.value() < last_slain.rank.value(),
+                            card.rank < last_slain.rank,
                             "Cannot slay a monster stronger than the smallest slain card using a weapon (new:{} vs last:{})",
-                            card.rank.value(),
-                            last_slain.rank.value()
+                            card.rank,
+                            last_slain.rank,
                         );
                     }
 
-                    let dmg = card.rank.value().saturating_sub(weapon.rank.value());
+                    let dmg = (card.rank as u8).saturating_sub(weapon.rank as u8);
                     self.player
                         .set_health(self.player.health.saturating_sub(dmg));
                     self.player.add_slain_card(card);
                     if dmg == 0 {
                         events.push(GameEvent::log(format!(
                             "Your {}{} makes short work of {}{}. You take no damage.",
-                            card.rank.short(),
-                            card.suit,
-                            weapon.rank.short(),
-                            weapon.suit,
+                            card.rank, card.suit, weapon.rank, weapon.suit,
                         )));
                     } else {
                         events.push(GameEvent::log(format!(
                             "You bring {}{} down using {}{}. The counterstrike costs {} health.",
-                            card.rank.short(),
-                            card.suit,
-                            weapon.rank.short(),
-                            weapon.suit,
-                            dmg
+                            card.rank, card.suit, weapon.rank, weapon.suit, dmg
                         )));
                     }
                 } else {
-                    let dmg = card.rank.value();
+                    let dmg = card.rank;
                     self.player
-                        .set_health(self.player.health.saturating_sub(dmg));
+                        .set_health(self.player.health.saturating_sub(dmg as u8));
                     self.discard_pile.push(card);
                     events.push(GameEvent::log(format!(
                         "You smash into {}{} bare-handed. You suffer {} damage.",
-                        card.rank.short(),
-                        card.suit,
-                        dmg
+                        card.rank, card.suit, dmg
                     )));
                 }
             }
             Suit::Hearts => {
                 if self.heal_available {
-                    let new_health = self.player.health + card.rank.value();
+                    let new_health = self.player.health + card.rank as u8;
                     self.player.set_health(new_health);
                     self.heal_available = false;
                     events.push(GameEvent::log(
@@ -641,8 +591,7 @@ impl Game {
                 } else {
                     events.push(GameEvent::log(format!(
                         "You equip {}{}.",
-                        card.rank.short(),
-                        card.suit
+                        card.rank, card.suit
                     )));
                 }
 
@@ -747,14 +696,14 @@ impl Game {
             if self.player.health == MAX_HEALTH {
                 for c in self.room.cards.iter().flatten() {
                     if matches!(c.suit, Suit::Hearts) {
-                        score += c.rank.value() as isize;
+                        score += c.rank as isize;
                     }
                 }
             }
         } else {
             for c in &self.deck.cards {
                 if matches!(c.suit, Suit::Spades | Suit::Clubs) {
-                    score -= c.rank.value() as isize;
+                    score -= c.rank as isize;
                 }
             }
         }
@@ -849,9 +798,9 @@ impl MessageLog {
                 MessageKind::Log => Styling::Dim,
                 MessageKind::Warn => Styling::Bold,
             };
-            for chunk in wrap_to_width(&msg.text, width) {
-                self.cached_lines
-                    .push(Line::from(Span::styled(chunk, style)));
+            for chunk in textwrap::wrap(&msg.text, width).into_iter() {
+                let line = Line::from(Span::styled(chunk.to_string(), style));
+                self.cached_lines.push(line);
             }
         }
 
@@ -1824,50 +1773,6 @@ fn centered_str(s: &str, width: usize) -> String {
     let left = total_pad / 2;
     let right = total_pad - left;
     format!("{}{}{}", " ".repeat(left), s, " ".repeat(right))
-}
-
-fn wrap_to_width(s: &str, width: usize) -> Vec<String> {
-    if width == 0 {
-        return vec![];
-    }
-
-    let mut out = Vec::new();
-    for raw_line in s.split('\n') {
-        let mut cur = String::new();
-        for word in raw_line.split_whitespace() {
-            let extra = if cur.is_empty() {
-                word.len()
-            } else {
-                1 + word.len()
-            };
-            if cur.len().saturating_add(extra) > width {
-                if !cur.is_empty() {
-                    out.push(cur);
-                    cur = String::new();
-                }
-                // If a single word is longer than width, hard-split it
-                if word.len() > width {
-                    let mut rest = word;
-                    while rest.len() > width {
-                        out.push(rest[..width].to_string());
-                        rest = &rest[width..];
-                    }
-                    if !rest.is_empty() {
-                        cur.push_str(rest);
-                    }
-                } else {
-                    cur.push_str(word);
-                }
-            } else {
-                if !cur.is_empty() {
-                    cur.push(' ');
-                }
-                cur.push_str(word);
-            }
-        }
-        out.push(cur);
-    }
-    out
 }
 
 fn format_duration(d: Duration) -> String {
