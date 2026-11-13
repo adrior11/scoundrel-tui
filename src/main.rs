@@ -377,7 +377,7 @@ enum Action {
 enum GameEvent {
     Log(String),
     Warn(String),
-    GameOver { score: isize },
+    GameOver { score: i64 },
 }
 
 impl GameEvent {
@@ -389,7 +389,7 @@ impl GameEvent {
         Self::Warn(s.into())
     }
 
-    fn game_over(score: isize) -> Self {
+    fn game_over(score: i64) -> Self {
         Self::GameOver { score }
     }
 }
@@ -398,7 +398,7 @@ struct Game {
     deck: Deck,
     player: Player,
     room: Room,
-    rooms_cleared: u32,
+    rooms_cleared: i64,
     discard_pile: Vec<Card>,
 
     avoid_available: bool,
@@ -688,9 +688,9 @@ impl Game {
     /// of the final card if it is a Heart (_Potion_) and their health is full.
     /// Otherwise, the score is the negative sum of the values of all remaining
     /// Spade and Club cards (_Monsters_) in the dungeon (deck + room).
-    fn get_score(&self, won: bool) -> isize {
+    fn get_score(&self, won: bool) -> i64 {
         if won {
-            let health = self.player.health as isize;
+            let health = self.player.health as i64;
 
             let bonus = if self.player.health == MAX_HEALTH {
                 self.room
@@ -698,7 +698,7 @@ impl Game {
                     .iter()
                     .flatten()
                     .find(|c| matches!(c.suit, Suit::Hearts))
-                    .map_or(0, |c| c.rank as isize)
+                    .map_or(0, |c| c.rank as i64)
             } else {
                 0
             };
@@ -711,8 +711,8 @@ impl Game {
                 .iter()
                 .chain(self.room.cards.iter().flatten())
                 .filter(|c| matches!(c.suit, Suit::Spades | Suit::Clubs))
-                .map(|c| c.rank as isize)
-                .sum::<isize>()
+                .map(|c| c.rank as i64)
+                .sum::<i64>()
         }
     }
 
@@ -840,15 +840,15 @@ impl Widget for &mut MessageLog {
 
 #[derive(Serialize, Deserialize)]
 struct ScoreEntry {
-    score: isize,
-    rooms: u32,
+    score: i64,
+    rooms: i64,
     duration_ms: u64,
     finished_at_unix: i64,
     seeded: bool,
 }
 
 impl ScoreEntry {
-    fn from_game(game: &Game, score: isize) -> Self {
+    fn from_game(game: &Game, score: i64) -> Self {
         let duration_ms = u64::try_from(game.elapsed().as_millis()).expect("Duration too long");
         let finished_at_unix = SystemTime::now()
             .duration_since(UNIX_EPOCH)
