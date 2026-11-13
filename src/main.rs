@@ -5,6 +5,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
+use anyhow::Context;
 use arboard::Clipboard;
 use chrono::{Local, TimeZone};
 use directories::ProjectDirs;
@@ -898,7 +899,8 @@ impl ScoreStore {
         let path = dir.join("scores.json");
         let file = if path.exists() {
             let bytes = std::fs::read(&path)?;
-            serde_json::from_slice::<ScoreFile>(&bytes).unwrap_or_default()
+            serde_json::from_slice::<ScoreFile>(&bytes)
+                .with_context(|| format!("invalid score file: {}", path.display()))?
         } else {
             ScoreFile::default()
         };
@@ -1251,14 +1253,9 @@ struct App {
     scores: ScoreStore,
 }
 
-impl Default for App {
-    fn default() -> Self {
-        let scores = ScoreStore::new().unwrap_or_else(|_| ScoreStore {
-            path: PathBuf::from("scores.json"),
-            file: ScoreFile::default(),
-        });
-
-        Self {
+impl App {
+    fn new() -> anyhow::Result<Self> {
+        Ok(Self {
             running: true,
             scene: Scene::Menu,
             menu_page: MenuPage::Home(0),
@@ -1266,12 +1263,10 @@ impl Default for App {
             seed_textarea: SeedTextarea::new(),
             game: None,
             log: MessageLog::new(MESSAGE_CAP),
-            scores,
-        }
+            scores: ScoreStore::new()?,
+        })
     }
-}
 
-impl App {
     fn run(&mut self, terminal: &mut DefaultTerminal) -> anyhow::Result<()> {
         while self.running {
             terminal.draw(|frame| {
@@ -1794,7 +1789,7 @@ fn format_duration(d: Duration) -> String {
 }
 
 fn main() -> anyhow::Result<()> {
-    let mut app = App::default();
+    let mut app = App::new()?;
     ratatui::run(|terminal| app.run(terminal))?;
     Ok(())
 }
